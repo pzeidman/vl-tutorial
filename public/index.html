@@ -19,10 +19,184 @@
   <h1>Modelling timeseries with Variational Laplace</h1>
   <h2>A description of the article</h2>
   <dt-byline></dt-byline>
-  <p>This is the first paragraph of the article.</p>
-  <p>  When \(a \ne 0\), there are two solutions to \(ax^2 + bx + c = 0\) and they are
-  $$x = {-b \pm \sqrt{b^2-4ac} \over 2a}.$$</p>
-  <p>We can also cite <dt-cite key="gregor2015draw"></dt-cite> external publications.</p>
+
+  <p>example citation <dt-cite key="gregor2015draw"></dt-cite></p>
+  
+<h3>Background</h3>    
+<p>We will start by defining the problem which model estimation addresses. 
+We have defined a forward model of our data, which can give the probability of any possible observation  \( y \) , for a particular setting of the parameters  \(  \Theta = \left(  \theta ^{n}, \theta ^{h}, \lambda  \right)  \) .  This gives the likelihood function \( p \left( y \vert  \Theta  \right)  \). For simplicity in this section, we lump together the parameters of the forward model  \(  \left(  \theta ^{ \left( n \right) }, \theta ^{ \left( h \right) } \right)  \)  with the hyperparameters  \(  \lambda  \) which control the precision of the observation noise. To make use of this model, we have two objectives. We wish to assess the quality of the model in terms of the model evidence  \( p \left( y \right)  \) - the probability of observing the data  \( y \)  given the model. We also wish to find the setting of the parameters which best explain the data – i.e. maximise the model evidence. This is the posterior probability density  \( p \left(  \Theta  \vert y \right)  \)  which is the probability of any particular setting of the parameters given the observed data (it is referred to as the ‘posterior’ because it represents our beliefs about the parameters after doing the experiment). Before doing the analysis, we define a prior probability density over the parameters  \( p \left(  \Theta  \right)  \) , which expresses our beliefs about which settings are probable and which are not.</p>
+
+<p> To find the posterior  \( p \left(  \Theta  \vert y \right)  \)  we use Bayes rule:
+
+ $$p \left(  \theta  \vert  y \right) =\frac{p \left( y \vert   \Theta  \right) p \left(  \Theta  \right) }{p \left( y \right) }=\frac{p \left( y, \Theta  \right) }{p \left( y \right) }$$
+
+After the first equals sign (=) we have used the format typically used to write Bayes rule, and after the second equals sign we have written the numerator as the joint distribution of the data and the parameters  \( p \left( y, \Theta  \right)  \) , which will be useful shortly. The model evidence  \( p \left( y \right)  \)  is defined as follows:
+
+ $$p \left( y \right) = \int p \left( y, \Theta  \right) d \Theta $$
+
+In words, calculating the model evidence involves marginalising (summing) over all possible settings of the parameters. Unfortunately, this integral cannot typically lacks an analytic solution and so cannot be calculated precisely. Instead, the posterior must be approximated, and the method used in DCM is referred to as variational Bayes under the Laplace approximation.
+</p>
+
+<h3>Variational Bayes</h3>
+<p>The posterior  \( p \left(  \Theta  \vert y \right)  \)  typically has a complicated shape which does not conform to a known probability distribution. Instead of trying to calculate it, the approach with variational Bayes is to approximate it using a simpler distribution  \( q \left(  \Theta  \right)  \) . In the case of DCM, this is a normal distribution:
+
+ $$q \left(  \Theta  \right)  \sim N \left(  \mu _{q},  \Sigma  _{q} \right) $$
+
+Where the expected value  \(  \mu _{q} \)  is a vector with one element per parameter and  \(   \Sigma  _{q} \)  is a covariance matrix. To approximate the posterior, we need to search for the setting of the variational parameters \(  \mu _{q} \)  and  \(   \Sigma  _{q} \)  which make  \( q \left(  \Theta  \right)  \)  and  \( p \left(  \Theta  \vert y \right)  \)  as similar as possible. The measure of difference between  \( q \left(  \Theta  \right)  \)  and  \( p \left(  \Theta  \vert y \right)  \)  is the KL-divergence:
+
+ $$ \begin{align} KL \left( q \left(  \Theta  \right)  \parallel  p\left(  \Theta  \vert  y \right)  \right) 
+ &= \int q \left(  \Theta  \right)  \cdot  \left( \ln{q} \left(  \Theta  \right) -\ln{p \left(  \Theta  \vert y \right)}  \right) d \Theta \\
+ &=  \int q \left(  \Theta  \right)  \ln{\frac{q \left(  \Theta  \right) }{p \left(  \Theta  \vert  y \right) }}d \Theta  \\
+ &=E_{q} \left[ \ln{q \left(  \Theta  \right)} -\ln{p \left(  \Theta  \vert  y \right)}  \right]  \end{align} $$
+
+Where  \( E_{q} \)  is the expected value over  \( q \) . The KL-divergence is a non-negative number which is zero when the two distributions are identical, and more positive the more they differ. However, in finding the variational parameters which minimize the KL-divergence, we have a problem – the KL-divergence contains the posterior  \( p \left(  \Theta  \vert y \right)  \) , which we cannot calculate. Instead, we use an expression which is easy to compute: the free energy.
+</p>
+
+<h3>The free energy</h3>
+<p>We can rewrite the KL-divergence, up to a constant, without the posterior  \( p \left(  \Theta  \vert y \right)  \) . We do this by substituting Bayes rule in place of the posterior and re-arranging:
+
+ $$\begin{align} KL \left( q \left(  \Theta  \right) \parallel p \left(  \Theta  \vert  y \right)  \right) 
+ &=  \int q \left(  \Theta  \right)  \ln{\frac{q \left(  \Theta  \right) }{p \left(  \Theta  \vert  y \right) }}d \Theta \\
+ &=  \int q \left(  \Theta  \right)  \ln{\frac{q \left(  \Theta  \right) }{\frac{p \left( y, \Theta  \right) }{p \left( y \right) }}}d \Theta \\
+ &= \int q \left(  \Theta  \right)  \ln{\frac{q \left(  \Theta  \right) p \left( y \right) }{p \left( y, \Theta  \right) }}d \Theta  \\
+ &= \int q \left(  \Theta  \right)  \ln{\frac{q \left(  \Theta  \right) }{p \left( y, \Theta  \right) }d \Theta +\ln{p \left( y \right)}}  \cdot  \int q \left(  \Theta  \right) d \Theta \\
+ &= \int q \left(  \Theta \right)  \ln{\frac{q \left(  \Theta  \right) }{p \left( y, \Theta  \right) }}d \Theta + \ln{p \left( y \right)} \end{align}$$
+
+The transition to the penultimate line is enabled because multiplication becomes addition with log values and  \( p \left( y \right)  \)  does not depend on  \(  \Theta  \)  or  \(  \lambda  \) , so can be taken outside the integral. The transition to the last line is enabled because the integral of a probability distribution is one. The first term of the last line is called the variational free energy, although in practice, we generally use the negative variational free energy, or free energy for short:
+
+ $$F= \int q \left(  \Theta  \right)  ln\frac{p \left( y, \Theta  \right) }{q \left(  \Theta  \right) }d \Theta   $$
+
+(This is enabled because flipping the top and bottom of the log of a fraction gives the negative.) Therefore the KL divergence is:
+
+ $$KL \left( q \left(  \Theta  \right) allel p \left(  \Theta  \vert  y \right)  \right) =-F+\ln{p \left( y \vert  m \right)}   $$
+
+And by re-arrangement:
+
+ $$\ln{p \left( y \vert  m \right)} =F+KL \left( q \left(  \Theta  \right) allel p \left(  \Theta  \vert  y \right)  \right)  $$
+
+This says that the log model evidence  \( \ln{p \left( y \vert m \right)}  \)  is the free energy plus the KL-divergence between the approximate and true posterior. Because the KL divergence is non-negative,  \( F \)  is a lower bound on the log model evidence.  This a key result. The log model evidence is a fixed value, so if we can find parameters which increase the free energy  \( F \) , we will necessarily minimize the last term, which is the mismatch between the true posterior and the approximate posterior. This is the basis for how models are fitted to data with variational Bayes.</p>
+
+<p>A further useful interpretation of the free energy is obtained by decomposing it into the accuracy of the model minus its complexity, where the accuracy is how closely the data fits the model, and the complexity is how far the posterior has deviated from the prior:
+
+ $$\begin{align}F \left( m \right) &= \int q \left(  \Theta  \right)  \ln{\frac{p \left( y, \Theta  \right) }{q \left(  \Theta  \right) }}d \Theta \\
+ &= \int q \left(  \Theta  \right)  \ln{\frac{p \left( y \vert   \Theta  \right) p \left(  \Theta  \right) }{q \left(  \Theta  \right) }}d \Theta  \\
+ &= \int q \left(  \Theta  \right)   \left( \ln{p \left( y \vert   \Theta  \right)} -\ln{\frac{q \left(  \Theta  \right) }{p \left(  \Theta  \right) }} \right) d \Theta \\
+ &= \int q \left(  \Theta  \right)  \ln{p \left( y \vert   \Theta  \right)} d \Theta - \int q \left(  \Theta  \right) \ln{\frac{q \left(  \Theta  \right) }{p \left(  \Theta  \right) }}d \Theta  \\
+ &= \underbrace{E_{q} \left[ \ln{p \left( y \vert   \Theta  \right)}  \right]}_{\text{accuracy}}-\underbrace{KL \left( q \left(  \theta  \right) allel p \left(  \Theta  \right)  \right)}_{\text{complexity}}  \end{align}$$
+
+Therefore, if one model has a higher free energy than other, it either more accurate, or less complex, or both. </p>
+
+<p>To summarise this section, model estimation involves finding the posterior  \( p \left(  \Theta  \vert y \right)  \) , which is our belief about the parameters after seeing the data. We cannot calculate this analytically, so instead we approximate  \( p \left(  \Theta  \vert y \right)  \)  with a simpler distribution  \( q \left(  \Theta  \right)  \) . The quality of this approximation is measured by the KL-divergence  \( KL \left( q \left(  \Theta  \right) , p \left(  \Theta  \vert  y \right)  \right)  \) which again cannot be calculated directly. However, we can easily calculate a related statistic, the free energy  \( F \) . By finding the parameters of  \( q \left(  \Theta  \right)  \)  which maximise  \( F \) , we bring the approximate posterior as close as possible to the true posterior. In DCM, each of the probability distributions described are multivariate normal densities, and in the next section we plug these in to the equations and show how the approximate parameters are computed in practice.</p>
+
+<h3>Free energy with the normal distribution</h3>
+<p>
+The estimation scheme alternates between updating the estimate of the DCM’s parameters  \(  \theta = \left(  \theta ^{ \left( n \right) }, \theta ^{ \left( h \right) } \right)  \)  and the hyperparameters  \(  \lambda  \)  which control the precision of the observation noise. We previously lumped these two kinds of parameter together as  \(  \Theta  \) but now we need to separate them out, under the constraint that they are independent of one another. The posterior becomes: 
+
+ $$q \left(  \theta , \lambda  \vert  y \right) =q \left(  \theta  \vert  y \right) q \left(  \lambda  \vert y \right)$$
+
+Where each approximate posterior has a multivariate normal distribution: 
+
+ $$q \left(  \theta  \vert  y \right) =N \left(  \mu _{ \theta },  \Sigma  _{ \theta } \right) \\
+ q \left(  \lambda  \vert  y \right) =N \left(  \mu _{ \lambda },  \Sigma  _{ \lambda } \right)$$
+
+The objective is to find the setting of the variational parameters  \(  \left(  \mu _{ \theta },  \Sigma  _{ \theta }, \mu _{ \lambda },  \Sigma  _{ \lambda } \right)  \)  which minimizes the difference between the approximate and true posterior. We next re-express the model with  \(  \Theta  \)  separated into parameters  \(  \theta  \)  and hyperparameters  \(  \lambda  \)  and plug in normal distributions for each: 
+
+ $$\begin{align}p \left( y, \theta , \lambda  \right) &= p \left( y \vert   \theta , \lambda  \right) p \left(  \theta  \right) p \left(  \lambda  \right)  \\ \\
+ p \left( y \vert  \theta , \lambda  \right) &= N \left( g \left(  \theta  \right) ,  \Sigma  _{y} \right)  \\
+ p \left(  \theta  \right) &= N \left(  \mu _{0 \left(  \theta  \right) },  \Sigma  _{0 \left(  \theta  \right) } \right)  \\
+ p \left(  \lambda  \right) &= N \left(  \mu _{0 \left(  \lambda  \right) },  \Sigma  _{0 \left(  \lambda  \right) } \right)\end{align}$$
+
+The first of the three terms is the likelihood, which is a normal density centred on the prediction of the DCM. The second and third terms are the priors on  \(  \theta  \)  and  \(  \lambda  \)  respectively. We also re-write the free energy with parameters and hyperparameters separated: 
+
+ $$F \left( m \right) = \iint  q \left(  \theta  \right) q \left(  \lambda  \right) \ln{\frac{p \left( y, \theta , \lambda  \right) }{q \left(  \theta  \right) q \left(  \lambda  \right) }}d \theta d \lambda $$
+
+ Now, we introduce \( U \left(  \theta , \lambda  \right) = \ln{p \left(y,\theta, \lambda \right)} \) and re-arrange the free energy into ‘energy’ and ‘entropy’ parts:
+
+ $$\begin{align}F \left( m \right) &= \iint  q \left(  \theta  \right) q \left(  \lambda  \right) U \left(  \theta , \lambda  \right) d \theta d \lambda - \iint  q \left(  \theta  \right) q \left(  \lambda  \right) \ln{ \left[ q \left(  \theta  \right) q \left(  \lambda  \right)  \right]} d \theta d \lambda  \\
+ &= \iint  q \left(  \theta  \right) q \left(  \lambda  \right) U \left(  \theta , \lambda  \right) d \theta d \lambda - \int  q \left(  \theta  \right) \ln{q \left(  \theta  \right)} d \theta - \int  q \left(  \lambda  \right) \ln{q \left(  \lambda  \right)} d \lambda \\
+ &=I+H \left(  \theta  \right) +H \left(  \lambda  \right)\end{align}$$
+
+Where  \( I \)  is referred to as the expected energy and  \( H \left(  \theta  \right)  \)  and  \( H \left(  \lambda  \right)  \)  are referred to as the differential entropy of  \(  \theta  \)  and  \(  \lambda  \)  respectively. Using the definition of the entropy for the normal distribution, this becomes: 
+
+ $$F \left( m \right) =I+\frac{1}{2} \left( p\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \theta } \vert}  \right) +\frac{1}{2} \left( h\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \lambda } \vert } \right)$$
+
+A complication arises in calculating this expression because within the energy part  \( I \) , we have the joint probability  \( U \left(  \theta , \lambda  \right)  \)  which may have an irregular form. Given enough samples this will take on a form which gets closer to a Gaussian. We therefore approximate the joint distribution by a normal distribution - this is called the Laplace approximation. </p>
+
+<h3>The Laplace approximation</h3>
+<p> To simplify \( I \) we use a normal distribution centred on the estimated posterior  \(  \left(  \mu _{ \theta }, \mu _{ \lambda } \right)  \). It is calculated using a quadratic approximation, which is a generalization of the Taylor series described above:  
+
+ \begin{align} U \left(  \theta , \lambda  \right)  \approx U_{L} \left(  \theta , \lambda  \right) 
+ &=U \left(  \mu _{ \theta }, \mu _{ \lambda } \right)  \\
+ &+\frac{1}{2} \left(  \lambda - \mu _{ \lambda } \right) ^{T}H_{ \lambda } \left(  \lambda - \mu _{ \lambda } \right)  \\
+ &+\frac{1}{2} \left(  \theta - \mu _{ \theta } \right) ^{T}H_{ \theta } \left(  \theta - \mu _{ \theta } \right)  \end{align}
+
+This includes no first-order derivatives, because these will be zero at the peak of the posterior. Matrices  \( H_{ \theta } \)  and  \( H_{ \lambda } \)  are referred to as Hessians, where element  \(  \left( i,j \right)  \)  is the second derivative of  \( U \)  with respect to parameters  \( i \)  and  \( j \) :
+
+ $$\begin{align} H_{ \theta_{i,j} } &= \frac{ \delta ^{2}U}{d \theta _{i}d \theta _{j}} \\
+    H_{ \lambda _{i},j} &= \frac{ \delta ^{2}U}{d \lambda _{i}d \lambda _{j}} \end{align}$$
+
+Using the Lemma:
+
+ $$ E \left[ x^{T}Ax \right] =Tr \left( A  \Sigma   \right) + \mu ^{T}  \Sigma   \mu  $$
+
+This becomes:
+
+ \begin{align} U_{L} \left(  \theta , \lambda  \right) &= U \left(  \mu _{ \theta }, \mu _{ \lambda } \right)  \\ 
+ &+\frac{1}{2} \left[  \mu _{ \lambda }^{T}  \Sigma  _{ \lambda } \mu _{ \lambda }+Tr \left( H_{ \lambda }  \Sigma  _{ \lambda } \right)  \right]  \\
+ &+\frac{1}{2} \left[  \mu _{ \theta }^{T}  \Sigma  _{ \theta } \mu _{ \theta }+Tr \left( H_{ \theta }  \Sigma  _{ \theta } \right)  \right]  \\
+ &=U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) +\frac{1}{2}Tr \left( H_{ \lambda }  \Sigma  _{ \lambda } \right) +\frac{1}{2}Tr \left( H_{ \theta }  \Sigma  _{ \theta } \right)  \end{align}
+
+
+<b>TODO: On the transition to the last line, why do the two MuSigmaMu terms vanish?</b>
+
+We now replace the energy  \( I \)  in the free energy with  \( I_{L} \)  which uses this approximated joint distribution  \( U_{L} \) :
+
+ $$\begin{align} I_{L} &= \iint _{}^{}q \left(  \theta  \right) q \left(  \lambda  \right) U_{L} \left(  \theta , \lambda  \right) d \theta d \lambda  \\ 
+ &=U_{L} \left(  \theta , \lambda  \right)  \\ 
+ &=U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) +\frac{1}{2}Tr \left( H_{ \lambda }  \Sigma  _{ \lambda } \right) +\frac{1}{2}Tr \left( H_{ \theta }  \Sigma  _{ \theta } \right) \end{align} $$
+
+<b>TODO: Where did the integrals and the posteriors go?</b> During estimation,  \( S_{ \theta }=-H_{ \theta }^{-1} \)  and  \( S_{ \lambda }=-H_{ \lambda }^{-1} \)  . This gives:
+
+ \[ I_{L}=U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) +\frac{p}{2}-\frac{h}{2} \] 
+
+Plugging this into the free energy:
+
+ \begin{align} F_{L} \left( m \right) &=I_{L}+\frac{1}{2} \left( p\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \theta } \vert } \right) +\frac{1}{2} \left( h\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \lambda } \vert}  \right)  \\
+ &= \left[ U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) +\frac{p}{2}-\frac{h}{2} \right] +\frac{1}{2} \left( p\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \theta } \vert } \right) +\frac{1}{2} \left( h\ln{2 \pi e}+\ln{ \vert   \Sigma  _{ \lambda } \vert}  \right) \\
+ &=U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) +\frac{p}{2}\ln{2 \pi} +\frac{1}{2}\ln{ \vert   \Sigma  _{ \theta } \vert} +\frac{p}{2}\ln{2 \pi} +\frac{1}{2}\ln{ \vert S_{ \lambda } \vert }  \end{align}
+
+Finally, recall that  \( U \left(  \mu _{ \theta }, \mu _{ \lambda } \right)  \)  is the joint probability of the parameters and the data. The definition of the log of the multivariate normal is:
+
+ $$\ln{N \left( x; \mu ,  \Sigma   \right)} =-\frac{1}{2} \left( x- \mu  \right) ^{T}  \Sigma  ^{-1} \left( x- \mu  \right) -\frac{1}{2}ln \vert   \Sigma   \vert -\frac{k}{2}ln2 \pi$$
+
+Where k is the dimensionality. Writing this in full using the definition of the multivariate normal:
+
+ $$\begin{align}U \left(  \mu _{ \theta }, \mu _{ \lambda } \right) &= \ln{p \left( y, \theta ,  \lambda  \right)}  \\
+ &=\ln{\left[ p \left( y \vert   \mu _{ \theta }, \theta _{ \lambda } \right) p \left(  \mu _{ \theta } \right) p \left(  \mu _{ \lambda } \right) \right]} \\
+ &=-\frac{1}{2}e_{y}^{T}  \Sigma_{0(y)}  ^{-1}e_{y}-\frac{1}{2}\ln{ \vert   \Sigma  _{0(y)} \vert} -\frac{N}{2}\ln{2 \pi}  \\
+ &-\frac{1}{2}e_{ \theta }^{T}  \Sigma_{0(\theta)}  ^{-1}e_{ \theta }-\frac{1}{2}\ln{ \vert   \Sigma  _{ 0(\theta) } \vert} -\frac{p}{2}\ln{2 \pi}  \\ 
+ &-\frac{1}{2}e_{ \lambda }^{T}  \Sigma_{0(\lambda)}  ^{-1}e_{ \lambda }-\frac{1}{2}\ln{ \vert   \Sigma  _{ 0(\lambda) } \vert} -\frac{h}{2}\ln{2 \pi} \end{align}$$
+
+Where the error terms are:
+
+ \[   e_{y}=y-g \left(  \mu _{ \theta } \right)  \]  \[   e_{ \theta }= \mu _{ \theta }- \mu _{0 \left(  \theta  \right) } \]  \[   e  _{ \lambda }= \mu _{ \lambda }- \mu _{0 \left(  \lambda  \right) } \] 
+
+We now have the complete expression for the free energy under the laplace approximation:
+
+ $$\begin{align}F_L=&-\frac{1}{2}e_{y}^{T}  \Sigma_{0(y)}  ^{-1}e_{y}-\frac{1}{2}\ln{ \vert   \Sigma  _{0(y)} \vert} -\frac{N}{2}\ln{2 \pi}\\
+&-\frac{1}{2}e_{\theta}^{T}  \Sigma_{0(\theta)}  ^{-1}e_{\theta}-\frac{1}{2}\ln{ \vert   \Sigma  _{0(\theta)} \vert} +\frac{1}{2}\ln{\vert \Sigma_{\theta}  \vert}  \\
+&-\frac{1}{2}e_{\lambda}^{T}  \Sigma_{0(\lambda)}  ^{-1}e_{\lambda}-\frac{1}{2}\ln{ \vert   \Sigma  _{0(\lambda)} \vert} +\frac{1}{2}\ln{\vert \Sigma_{\lambda}  \vert} \end{align} $$
+
+And we use this as our objective function to estimate the parameters and evidence of the model.
+</p>
+
+<h3>Model estimation</h3>
+  
+<p>...</p>
+
+<h3>Example</h3>
+  
+<p>...</p>
 </dt-article>
 
 <dt-appendix>
