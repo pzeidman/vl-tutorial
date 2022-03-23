@@ -134,16 +134,13 @@ function [Ep,Cp,Eh,Ch,F] = variational_laplace(M,U,Y)
                
         % Compute Jacobian dg/dp
         % -----------------------------------------------------------------
-        dgdp = compute_g_gradient(p);
-                        
-        % If needed, increase regularization and re-compute Jacobian
-        revert = check_stability(dgdp);
-        if revert && it > 1
-            [dgdp, p, logv, revert] = repair_gradient(dFdpp,dFdp,C.p,logv);
-        end
+        J = compute_g_gradient(p);
         
-        % Jacobian
-        J = -dgdp;
+        % If needed, increase regularization and re-compute Jacobian
+        revert = check_stability(J);
+        if revert && it > 1
+            [J, p, logv, revert] = repair_gradient(dFdpp,dFdp,C.p,logv);
+        end
         
         % If gradient is still not stable, give up
         if revert, error('Could not compute gradient'); end
@@ -176,7 +173,7 @@ function [Ep,Cp,Eh,Ch,F] = variational_laplace(M,U,Y)
             
             % Compute free energy gradient and curvature
             dFdp  = compute_F_gradient(p,y,J,iS,Ch,P);
-            dFdpp = compute_F_curvature(J,iS);
+            dFdpp = compute_F_curvature(J,iS,Ch,P);
             
             % Decrease regularization
             logv = decrease_regularization(logv);
@@ -229,10 +226,10 @@ function dgdp = compute_g_gradient(p)
     % dgdp - dg/dp      [Np x 1]
     
     dgdp = zeros(M.Ny,M.Np);    
-    dx = exp(-8);
-    p0 = p;
+    dx   = exp(-8);
+    p0   = p;
     for i = 1:M.Np
-        p = p0;
+        p    = p0;
         p(i) = p(i) + dx;
         dgdp(:,i) = (M.fun(p,M,U) - M.fun(p0,M,U)) ./ dx;
     end
@@ -255,24 +252,35 @@ function dFdp = compute_F_gradient(p,y,J,iS,Ch,P)
     ey = y - M.fun(p,M,U);
             
     % Gradient of the expected log joint 
-    dFdp  = -J'*iS*ey - M.ipC*ep;
+    dFdp  = J'*iS*ey - M.ipC*ep;
     
     % Optional term
     %for i = 1:length(P)
-    %    dFdp = dFdp - 0.5*Ch(i,i)*J'*P{i}*ey;
+    %    dFdp = dFdp + Ch(i,i)*J'*P{i}*ey;
     %end
 end
 % -------------------------------------------------------------------------
-function [dFdpp,Cp] = compute_F_curvature(J,iS)    
+function [dFdpp,Cp] = compute_F_curvature(J,iS,Ch,P)    
     % Computes 2nd derivative of the expected log joint wrt parameters
     % (where the expectation is wrt to the hypeparameters)
     %
-    % J     - Jacobian dgdp                           [Ny x Np]
-    % iS    - estimated data precision                [Ny x Ny]
-    % dFdpp - second derivative (Hessian)            [Np x Np]
-    % Cp    - posterior covariance                   [Np x Np]
+    % J    - Jacobian dgdp                                       [Ny x Np]
+    % iS   - estimated data precision                            [Ny x Ny]
+    % Ch   - (optional) posterior covariance of hyperparameters  [Nh x Nh]
+    % P    - (optional) estimated data precision per component   {Nh x Nh}
+    %
+    % Returns:
+    % dFdpp - second derivative (Hessian)             [Np x Np]
+    % Cp    - posterior covariance                    [Np x Np]
     
     dFdpp = -J'*iS*J - M.ipC;
+    
+    % Optional term (requires optional inputs Ch and P)
+    %if nargin > 2
+    %    for i = 1:length(P)
+    %        dFdpp = dFdpp - Ch(i,i)*J'*P{i}*J;
+    %    end
+    %end
     
     % Posterior precision (Pp) and covariance (Cp) of parameters
     Pp = -dFdpp;
@@ -338,10 +346,10 @@ function dp = update(dFdpp, dFdp, logv)
     
     n = length(dFdp);
     
-    %TODO comment this
+    % Scale the log-regularization parameter (logv) by the curvature
     t = exp(logv - logdet(dFdpp)/n);
     
-    %Compute update using local linearization
+    % Compute update using local linearization
     dp = (expm(dFdpp*t) - eye(n))*inv(dFdpp)*dFdp;
 end
 
@@ -387,9 +395,13 @@ end
 % -------------------------------------------------------------------------
 function [iS, P] = compute_data_precision(h,Q)
     % Calculates estimated precision of the data
-    % 
+    %
     % h - hypeparameters       [Nh x 1]
     % Q - precision components {Ny x Ny}
+    %
+    % Returns:
+    % iS   - data precision                                     [Ny x Ny]
+    % P{i} - contribution to data precision from i-th component [Ny x Ny]
     
     Ny = M.Ny;
     Nh = M.Nh;
@@ -431,10 +443,10 @@ function [h,Ch,has_converged] = update_hyperparameters(h,p,J,Cp,P,iS,y)
     Nh = M.Nh;
     dFdhh = zeros(Nh,Nh);
     for i = 1:Nh
-        dFdhh(i,i) = -ihC(i,i) ...
-                     + 0.5 * trace(P{i}*S - P{i}*S*P{i}*S)...
-                     - 0.5 * (ey' * P{i} * ey) ...
-                     - 0.5 * trace(Cp * J' * P{i} * J);
+         dFdhh(i,i) = -ihC(i,i) ...
+                      + 0.5 * trace(P{i}*S - P{i}*S*P{i}*S)...
+                      - 0.5 * (ey' * P{i} * ey) ...
+                      - 0.5 * trace(Cp * J' * P{i} * J);
     end
     
     % Posterior precision (Ph) and covariance (Ch) of the hyperparameters

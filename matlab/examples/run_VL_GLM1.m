@@ -19,13 +19,10 @@ ny  = 100;                              % number of data points
 Y   = struct();
 Y.Q = {eye(ny)};
 
-% simulate data
+% Simulate data
 % -------------------------------------------------------------------------
 gp  = [0.5; 0.1];                      % generative parameters
 gh  = 3;                               % generative hyperparameters
-
-% Generate data
-% -------------------------------------------------------------------------
 
 % Generative precision matrix
 P = zeros(ny,ny);
@@ -46,6 +43,7 @@ U   = [];
 % Invert model
 % -------------------------------------------------------------------------
 [Ep,Cp,Eh,Ch,F] = variational_laplace(M,U,Y);
+
 %% Invert GLM using SPM NLSI for comparison (requires SPM)
 M2   = struct();
 M2.pE = M.pE; 
