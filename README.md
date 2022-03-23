@@ -5,5 +5,6 @@ A standalone implementation of the algorithm for MATLAB or Octave can be found i
 
 Instructions:
 
-1. Download the matlab folder to somewhere convenient
-2. Using MATLAB or Octave, run examples/run_VL_all.m to reproduce the figures in the paper.
+1. Download the matlab/ folder to somewhere convenient on your computer
+2. Using MATLAB or Octave, change the working directory to the matlab/examples/ folder
+3. Run the script run_VL_all.m to reproduce the figures in the paper
