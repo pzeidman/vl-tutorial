@@ -306,7 +306,7 @@ function [dgdp, p, logv, revert] = repair_gradient(dFdpp,dFdp,p,logv)
         p = p_ok + update(dFdpp, dFdp, logv);
 
         % Try again
-        dgdp   = compute_g_gradient(p,M,U);
+        dgdp   = compute_g_gradient(p);
         revert = check_stability(dgdp);
 
         % Stop if OK now
